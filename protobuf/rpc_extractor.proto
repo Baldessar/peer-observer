@@ -16,6 +16,7 @@ message rpc {
     NetworkInfo network_info = 8;
     BlockchainInfo blockchain_info = 9;
     OrphanTxs orphan_txs = 10;
+    Addrman addrman = 11;
   }
 }
 
@@ -216,4 +217,26 @@ message OrphanTx {
   required bitcoin_primitives.Transaction transaction = 7;  // The orphan transaction.
 }
 
+// A getrawaddrman RPC response from Bitcoin Core.
+message Addrman {
+  map<uint32, AddrmanBucket> new = 1;
+  map<uint32, AddrmanBucket> tried = 2;
+}
 
+// An addrman bucket.
+message AddrmanBucket {
+  map<uint32, AddrmanEntry> entries = 1;
+}
+
+// A addrman entry.
+message AddrmanEntry {
+  required string address               = 1;    // The address of the node
+  required uint32 port                  = 2;    // The port number of the node
+  required string network               = 3;    // The network (ipv4, ipv6, onion, i2p, cjdns) of the address
+  required uint64 services              = 4;    // The services offered by the node
+  required int64  time                  = 5;    // The UNIX epoch time when the node was last seen
+  required string source                = 6;    // The address that relayed the address to us
+  required string source_network        = 7;    // The network (ipv4, ipv6, onion, i2p, cjdns) of the source address
+  optional uint32 mapped_as             = 8;    // Mapped AS (Autonomous System) number at the end of the BGP route to the peer, used for diversifying peer selection (only displayed if the -asmap config option is set)
+  optional uint32 source_mapped_as      = 9;    // Mapped AS (Autonomous System) number at the end of the BGP route to the source, used for diversifying peer selection (only displayed if the -asmap config option is set)
+}

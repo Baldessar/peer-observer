@@ -11,9 +11,14 @@ use corepc_client::types::v28::{GetNetworkInfo, GetNetworkInfoAddress, GetNetwor
 use corepc_client::types::v29::GetBlockchainInfo;
 use corepc_client::types::v30::GetMempoolInfo;
 
+// Types that don't have a generic model type in corepc (yet).
+use corepc_client::types::v28::{GetRawAddrMan, RawAddrManEntry};
+
 // TODO: Ideally, all type imports should use the generic mtype types.
 use corepc_node::mtype::{GetOrphanTxsVerboseTwo, GetOrphanTxsVerboseTwoEntry};
 
+use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::fmt;
 
 // structs are generated via the rpc_extractor.proto file
@@ -53,6 +58,7 @@ impl fmt::Display for rpc::RpcEvent {
             rpc::RpcEvent::NetworkInfo(info) => write!(f, "{}", info),
             rpc::RpcEvent::BlockchainInfo(info) => write!(f, "{}", info),
             rpc::RpcEvent::OrphanTxs(orphans) => write!(f, "{}", orphans),
+            rpc::RpcEvent::Addrman(addrman) => write!(f, "{}", addrman),
         }
     }
 }
@@ -418,6 +424,97 @@ impl From<GetOrphanTxsVerboseTwo> for OrphanTxs {
     fn from(orphans: GetOrphanTxsVerboseTwo) -> Self {
         OrphanTxs {
             orphans: orphans.0.iter().map(|i| i.clone().into()).collect(),
+        }
+    }
+}
+
+impl fmt::Display for Addrman {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Addrman(new={}, tried={})",
+            self.new
+                .iter()
+                .fold(0, |acc, bucket| acc + bucket.1.entries.len()),
+            self.tried
+                .iter()
+                .fold(0, |acc, bucket| acc + bucket.1.entries.len())
+        )
+    }
+}
+
+impl fmt::Display for AddrmanBucket {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "AddrmanBucket(entries={})", self.entries.len(),)
+    }
+}
+
+impl fmt::Display for AddrmanEntry {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "AddrmanEntry({}:{}, services={}, source={})",
+            self.address, self.port, self.services, self.source,
+        )
+    }
+}
+
+impl From<RawAddrManEntry> for AddrmanEntry {
+    fn from(entry: RawAddrManEntry) -> Self {
+        AddrmanEntry {
+            address: entry.address,
+            port: entry.port as u32, // protobuf doesn't have u16
+            network: entry.network,
+            services: entry.services,
+            time: entry.time,
+            source: entry.source,
+            source_network: entry.source_network,
+            mapped_as: entry.mapped_as,
+            source_mapped_as: entry.source_mapped_as,
+        }
+    }
+}
+
+impl From<GetRawAddrMan> for Addrman {
+    fn from(addrman: GetRawAddrMan) -> Self {
+        fn table_to_addrman_buckets(
+            in_table: &BTreeMap<String, RawAddrManEntry>,
+        ) -> HashMap<u32, AddrmanBucket> {
+            let mut table: HashMap<u32, AddrmanBucket> = HashMap::new();
+            for (key, value) in in_table.iter() {
+                let (bucket_str, pos_str) = key
+                    .split_once('/')
+                    .expect("addrman key must be in the form bucket/position");
+
+                let bucket: u32 = bucket_str.parse().unwrap_or_else(|e| {
+                    panic!(
+                        "addrman bucket '{}' should be parsable as u32: {}",
+                        bucket_str, e
+                    )
+                });
+
+                let position: u32 = pos_str.parse().unwrap_or_else(|e| {
+                    panic!(
+                        "addrman position '{}' should be parsable as u32: {}",
+                        pos_str, e
+                    )
+                });
+
+                table
+                    .entry(bucket)
+                    .or_insert_with(|| AddrmanBucket {
+                        entries: HashMap::new(),
+                    })
+                    .entries
+                    .entry(position)
+                    .or_insert_with(|| value.clone().into());
+            }
+            table
+        }
+
+        Addrman {
+            new: table_to_addrman_buckets(&addrman.new),
+            tried: table_to_addrman_buckets(&addrman.tried),
         }
     }
 }

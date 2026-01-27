@@ -15,7 +15,7 @@ use shared::{
     protobuf::{
         event::{Event, event::PeerObserverEvent},
         rpc_extractor::rpc::RpcEvent::{
-            AddrmanInfo, BlockchainInfo, ChainTxStats, MemoryInfo, MempoolInfo, NetTotals,
+            Addrman, AddrmanInfo, BlockchainInfo, ChainTxStats, MemoryInfo, MempoolInfo, NetTotals,
             NetworkInfo, OrphanTxs, PeerInfos, Uptime,
         },
     },
@@ -62,6 +62,7 @@ struct EnabledRPCsInTest {
     getnetworkinfo: bool,
     getblockchaininfo: bool,
     getorphantxs: bool,
+    getrawaddrman: bool,
 }
 
 fn make_test_args(
@@ -91,6 +92,7 @@ fn make_test_args(
         !rpcs.getnetworkinfo,
         !rpcs.getblockchaininfo,
         !rpcs.getorphantxs,
+        !rpcs.getrawaddrman,
     )
 }
 
@@ -576,6 +578,57 @@ async fn test_integration_rpc_getorphantxs() {
                     match e {
                         OrphanTxs(result) => {
                             assert_eq!(result.orphans.len(), 3);
+                        }
+                        _ => panic!("unexpected RPC data {:?}", r.rpc_event),
+                    }
+                }
+            }
+            _ => panic!("unexpected event {:?}", event),
+        },
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn test_integration_rpc_getrawaddrman() {
+    println!("test that we receive getrawaddrman RPC events");
+
+    check(
+        EnabledRPCsInTest {
+            getrawaddrman: true,
+            ..Default::default()
+        },
+        |node1, _node2| {
+            node1
+                .client
+                .add_peer_address("1.2.3.4", 1234)
+                .expect("addpeeraddress");
+        },
+        |event| match event {
+            PeerObserverEvent::RpcExtractor(r) => {
+                if let Some(ref e) = r.rpc_event {
+                    match e {
+                        Addrman(addrman) => {
+                            for (_, bucket) in addrman.new.iter() {
+                                for (_, entry) in bucket.entries.iter() {
+                                    assert_eq!(entry.address, "1.2.3.4");
+                                    assert_eq!(entry.port, 1234);
+                                }
+                            }
+                            assert_eq!(
+                                addrman
+                                    .new
+                                    .iter()
+                                    .fold(0, |acc, bucket| acc + bucket.1.entries.len()),
+                                1
+                            );
+                            assert_eq!(
+                                addrman
+                                    .tried
+                                    .iter()
+                                    .fold(0, |acc, bucket| acc + bucket.1.entries.len()),
+                                0
+                            );
                         }
                         _ => panic!("unexpected RPC data {:?}", r.rpc_event),
                     }

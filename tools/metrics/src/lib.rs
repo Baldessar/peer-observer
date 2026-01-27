@@ -743,6 +743,7 @@ fn handle_rpc_event(e: &rpc::RpcEvent, state_arc: Arc<Mutex<State>>, metrics: me
                 metrics.rpc_chaintxstats_tx_rate.set(tx_rate);
             }
         }
+        rpc::RpcEvent::Addrman(_addrman) => (),
     }
 }
 

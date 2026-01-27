@@ -95,6 +95,10 @@ pub struct Args {
     /// Disable querying and publishing of `getorphantxs` data.
     #[arg(long, default_value_t = false)]
     pub disable_getorphantxs: bool,
+
+    /// Disable querying and publishing of `getrawaddrman` data.
+    #[arg(long, default_value_t = false)]
+    pub disable_getrawaddrman: bool,
 }
 
 impl Args {
@@ -115,6 +119,7 @@ impl Args {
         disable_getnetworkinfo: bool,
         disable_getblockchaininfo: bool,
         disable_getorphantxs: bool,
+        disable_getrawaddrman: bool,
     ) -> Args {
         Self {
             nats,
@@ -134,6 +139,7 @@ impl Args {
             disable_getnetworkinfo,
             disable_getblockchaininfo,
             disable_getorphantxs,
+            disable_getrawaddrman,
             // when adding more disable_* args, make sure to update the disable_all below
         }
     }
@@ -201,6 +207,10 @@ pub async fn run(args: Args, mut shutdown_rx: watch::Receiver<bool>) -> Result<(
         "Querying getorphantxs enabled: {}",
         !args.disable_getorphantxs
     );
+    log::info!(
+        "Querying getrawaddrman enabled: {}",
+        !args.disable_getrawaddrman
+    );
     // check if we have at least one RPC to query
     let disable_all = args.disable_getpeerinfo
         && args.disable_getmempoolinfo
@@ -211,7 +221,8 @@ pub async fn run(args: Args, mut shutdown_rx: watch::Receiver<bool>) -> Result<(
         && args.disable_getchaintxstats
         && args.disable_getnetworkinfo
         && args.disable_getblockchaininfo
-        && args.disable_getorphantxs;
+        && args.disable_getorphantxs
+        && args.disable_getrawaddrman;
     if disable_all {
         log::warn!("No RPC configured to be queried!");
     }
@@ -250,6 +261,10 @@ pub async fn run(args: Args, mut shutdown_rx: watch::Receiver<bool>) -> Result<(
                 if !args.disable_getorphantxs
                     && let Err(e) = getorphantxs(&rpc_client, &nats_client).await {
                         log::error!("Could not fetch and publish 'getorphantxs': {}", e)
+                }
+                if !args.disable_getrawaddrman
+                    && let Err(e) = getrawaddrman(&rpc_client, &nats_client).await {
+                        log::error!("Could not fetch and publish 'getrawaddrman': {}", e)
                 }
             }
             _ = less_frequent_interval.tick() => {
@@ -446,6 +461,22 @@ async fn getorphantxs(
 
     let proto = Event::new(PeerObserverEvent::RpcExtractor(rpc_extractor::Rpc {
         rpc_event: Some(rpc_extractor::rpc::RpcEvent::OrphanTxs(orphans.into())),
+    }))?;
+
+    nats_client
+        .publish(Subject::Rpc.to_string(), proto.encode_to_vec().into())
+        .await?;
+    Ok(())
+}
+
+async fn getrawaddrman(
+    rpc_client: &Client,
+    nats_client: &async_nats::Client,
+) -> Result<(), FetchOrPublishError> {
+    let addrman = rpc_client.get_raw_addrman()?;
+
+    let proto = Event::new(PeerObserverEvent::RpcExtractor(rpc_extractor::Rpc {
+        rpc_event: Some(rpc_extractor::rpc::RpcEvent::Addrman(addrman.into())),
     }))?;
 
     nats_client

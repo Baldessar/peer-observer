@@ -63,6 +63,8 @@ Options:
           Disable querying and publishing of `getblockchaininfo` data
       --disable-getorphantxs
           Disable querying and publishing of `getorphantxs` data
+      --disable-getrawaddrman
+          Disable querying and publishing of `getrawaddrman` data
   -h, --help
           Print help
   -V, --version
