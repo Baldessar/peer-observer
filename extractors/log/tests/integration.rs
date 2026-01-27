@@ -17,7 +17,7 @@ use shared::{
     simple_logger::SimpleLogger,
     testing::nats_server::NatsServerForTesting,
     tokio::{
-        self,
+        self, select,
         sync::watch,
         time::{Duration, sleep},
     },
@@ -26,6 +26,9 @@ use std::str::FromStr;
 use std::sync::Once;
 
 static INIT: Once = Once::new();
+
+// 10 second check() timeout.
+const TEST_TIMEOUT_SECONDS: u64 = 10;
 
 fn setup() {
     INIT.call_once(|| {
@@ -129,13 +132,19 @@ async fn check(
 
     sleep(Duration::from_secs(1)).await;
 
-    while let Some(msg) = sub.next().await {
-        let unwrapped = Event::decode(msg.payload).unwrap();
-        if let Some(event) = unwrapped.peer_observer_event
-            && check_event(event)
-        {
-            break;
+    select! {
+        _ = sleep(Duration::from_secs(TEST_TIMEOUT_SECONDS)) => {
+            panic!("timed out waiting for check() to complete");
         }
+        _ = async { while let Some(msg) = sub.next().await {
+                let unwrapped = Event::decode(msg.payload).unwrap();
+                if let Some(event) = unwrapped.peer_observer_event
+                    && check_event(event)
+                {
+                    break;
+                }
+            }
+        } => {},
     }
 
     shutdown_tx.send(true).unwrap();
@@ -534,6 +543,27 @@ async fn test_integration_logextractor_unknown_with_all_metadata() {
                         );
                         return true;
                     }
+                }
+                _ => panic!("unexpected event {:?}", event),
+            };
+            false
+        },
+    )
+    .await;
+}
+
+#[tokio::test]
+#[should_panic(expected = "timed out waiting for check() to complete")]
+async fn test_integration_logextractor_testsshouldtimeout() {
+    println!("test that we timeout long running tests");
+
+    check(
+        vec![],
+        |_node1| {},
+        |event| {
+            match event {
+                PeerObserverEvent::LogExtractor(_) => {
+                    // do nothing
                 }
                 _ => panic!("unexpected event {:?}", event),
             };
