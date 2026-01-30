@@ -82,6 +82,7 @@ fn make_test_args(
         rpc_url,
         cookie_file,
         QUERY_INTERVAL_SECONDS,
+        QUERY_INTERVAL_SECONDS, // query_interval_less_frequent, but don't fetch less frequently in tests
         !rpcs.getpeerinfo,
         !rpcs.getmempoolinfo,
         !rpcs.uptime,

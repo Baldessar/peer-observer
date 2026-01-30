@@ -56,6 +56,14 @@ pub struct Args {
     #[arg(long, default_value_t = 10)]
     pub query_interval: u64,
 
+    /// Interval (in seconds) in which to query resource-intensive or less frequently changing RPCs from the Bitcoin Core RPC endpoint.
+    /// These currently include:
+    /// - getchaintxstats (infrequent changes)
+    /// - getblockchaininfo (infrequent changes)
+    /// - getrawaddrman (resource intensive)
+    #[arg(long, default_value_t = 120)]
+    pub query_interval_less_frequent: u64,
+
     /// Disable querying and publishing of `getpeerinfo` data.
     #[arg(long, default_value_t = false)]
     pub disable_getpeerinfo: bool,
@@ -109,6 +117,7 @@ impl Args {
         rpc_host: String,
         rpc_cookie_file: String,
         query_interval: u64,
+        query_interval_less_frequent: u64,
         disable_getpeerinfo: bool,
         disable_getmempoolinfo: bool,
         disable_uptime: bool,
@@ -129,6 +138,7 @@ impl Args {
             rpc_user: None,
             rpc_cookie_file: Some(rpc_cookie_file),
             query_interval,
+            query_interval_less_frequent,
             disable_getpeerinfo,
             disable_getmempoolinfo,
             disable_uptime,
@@ -168,7 +178,12 @@ pub async fn run(args: Args, mut shutdown_rx: watch::Receiver<bool>) -> Result<(
     );
 
     // Use a separate interval for queries that can be run less frequently
-    let mut less_frequent_interval = time::interval(Duration::from_secs(args.query_interval * 60));
+    let duration_sec_less_frequent = Duration::from_secs(args.query_interval_less_frequent);
+    let mut less_frequent_interval = time::interval(duration_sec_less_frequent);
+    log::info!(
+        "Querying the Bitcoin Core RPC interface for 'less-frequent' RPCs every {:?}.",
+        duration_sec_less_frequent
+    );
 
     log::info!(
         "Querying getpeerinfo enabled:    {}",
@@ -262,12 +277,9 @@ pub async fn run(args: Args, mut shutdown_rx: watch::Receiver<bool>) -> Result<(
                     && let Err(e) = getorphantxs(&rpc_client, &nats_client).await {
                         log::error!("Could not fetch and publish 'getorphantxs': {}", e)
                 }
-                if !args.disable_getrawaddrman
-                    && let Err(e) = getrawaddrman(&rpc_client, &nats_client).await {
-                        log::error!("Could not fetch and publish 'getrawaddrman': {}", e)
-                }
             }
             _ = less_frequent_interval.tick() => {
+                // make sure to update the Args docs when changing these:
                 if !args.disable_getchaintxstats
                     && let Err(e) = getchaintxstats(&rpc_client, &nats_client).await {
                         log::error!("Could not fetch and publish 'getchaintxstats': {}", e)
@@ -275,6 +287,10 @@ pub async fn run(args: Args, mut shutdown_rx: watch::Receiver<bool>) -> Result<(
                 if !args.disable_getblockchaininfo
                     && let Err(e) = getblockchaininfo(&rpc_client, &nats_client).await {
                         log::error!("Could not fetch and publish 'getblockchaininfo': {}", e)
+                }
+                if !args.disable_getrawaddrman
+                    && let Err(e) = getrawaddrman(&rpc_client, &nats_client).await {
+                        log::error!("Could not fetch and publish 'getrawaddrman': {}", e)
                 }
             }
             res = shutdown_rx.changed() => {

@@ -43,6 +43,8 @@ Options:
           An RPC cookie file for authentication with the Bitcoin Core RPC endpoint
       --query-interval <QUERY_INTERVAL>
           Interval (in seconds) in which to query from the Bitcoin Core RPC endpoint [default: 10]
+      --query-interval-less-frequent <QUERY_INTERVAL_LESS_FREQUENT>
+          Interval (in seconds) in which to query resource-intensive or less frequently changing RPCs from the Bitcoin Core RPC endpoint. These currently include: - getchaintxstats (infrequent changes) - getblockchaininfo (infrequent changes) - getrawaddrman (resource intensive) [default: 120]
       --disable-getpeerinfo
           Disable querying and publishing of `getpeerinfo` data
       --disable-getmempoolinfo
