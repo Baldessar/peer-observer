@@ -1652,6 +1652,53 @@ async fn test_integration_metrics_conn_special_ip() {
 }
 
 #[tokio::test]
+async fn test_integration_metrics_conn_private_transaction_broadcast() {
+    println!("test that the private_transaction_broadcast connection metrics work");
+
+    publish_and_check(
+        &[Event::new(PeerObserverEvent::EbpfExtractor(Ebpf {
+            ebpf_event: Some(ebpf::EbpfEvent::Message(message::MessageEvent {
+                meta: Metadata {
+                    peer_id: 1,
+                    addr: "127.0.0.1:2134".to_string(),
+                    conn_type: 3,
+                    command: "version".to_string(),
+                    inbound: true,
+                    size: 80,
+                },
+                msg: Some(Msg::Version(Version {
+                    version: 123,
+                    services: 232,
+                    timestamp: 1,
+                    receiver: Address {
+                        timestamp: 0,
+                        port: 1,
+                        services: 1,
+                        address: None,
+                    },
+                    sender: Address {
+                        timestamp: 0,
+                        port: 2,
+                        services: 2,
+                        address: None,
+                    },
+                    nonce: 3,
+                    user_agent: "/pynode:0.0.1/".to_string(),
+                    start_height: 1,
+                    relay: true,
+                })),
+            })),
+        }))
+        .unwrap()],
+        Subject::NetConn,
+        r#"
+        peerobserver_conn_private_transaction_broadcast 1
+        "#,
+    )
+    .await;
+}
+
+#[tokio::test]
 async fn test_integration_metrics_validation() {
     println!("test that validation metrics work");
 

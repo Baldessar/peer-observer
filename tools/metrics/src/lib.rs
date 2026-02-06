@@ -37,6 +37,10 @@ mod stat_util;
 
 const LOG_TARGET: &str = "main";
 
+// User agent of private transaction broadcast connections from Bitcoin Core (and others).
+// See https://github.com/bitcoin/bitcoin/blob/9ec1ae0e98c0d60fa6ebc9713dd344b454ebe0b6/src/net_processing.cpp#L1559
+const PRIVATE_TRANSACTION_BROADCAST_USERAGENT: &str = "/pynode:0.0.1/";
+
 /// A peer-observer tool that produces Prometheus metrics for received events
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -1404,6 +1408,10 @@ fn handle_p2p_message(msg: &message::MessageEvent, timestamp_ms: u64, metrics: m
                         .p2p_version_useragent
                         .with_label_values(&[&user_agent])
                         .inc();
+
+                    if user_agent == PRIVATE_TRANSACTION_BROADCAST_USERAGENT {
+                        metrics.conn_private_transaction_broadcast.inc();
+                    }
                 }
             }
             Msg::Feefilter(f) => {

@@ -179,6 +179,16 @@ pub struct Metrics {
     pub p2p_address_subnetannouncements: IntCounterVec,
     pub p2p_addrv2_empty: IntCounterVec,
     pub p2p_ping_inbound_value: IntCounterVec,
+    pub p2p_inv_entries: IntCounterVec,
+    pub p2p_inv_entries_histogram: HistogramVec,
+    pub p2p_invs_homogeneous: IntCounterVec,
+    pub p2p_invs_heterogeneous: IntCounterVec,
+    pub p2p_invs_outbound_large: IntCounter,
+    pub p2p_oldping_subnet: IntCounterVec,
+    pub p2p_version_useragent: IntCounterVec,
+    pub p2p_feefilter_feerate: IntCounterVec,
+    pub p2p_reject_message: IntCounterVec,
+
     pub conn_inbound: IntCounter,
     pub conn_inbound_network: IntCounterVec,
     pub conn_inbound_banlist_monero: IntCounter,
@@ -195,15 +205,8 @@ pub struct Metrics {
     pub conn_evicted_inbound: IntCounter,
     pub conn_misbehaving: IntCounterVec,
     pub conn_misbehaving_reason: IntCounterVec,
-    pub p2p_inv_entries: IntCounterVec,
-    pub p2p_inv_entries_histogram: HistogramVec,
-    pub p2p_invs_homogeneous: IntCounterVec,
-    pub p2p_invs_heterogeneous: IntCounterVec,
-    pub p2p_invs_outbound_large: IntCounter,
-    pub p2p_oldping_subnet: IntCounterVec,
-    pub p2p_version_useragent: IntCounterVec,
-    pub p2p_feefilter_feerate: IntCounterVec,
-    pub p2p_reject_message: IntCounterVec,
+    pub conn_private_transaction_broadcast: IntCounter,
+
     pub addrman_new_insert: IntCounterVec,
     pub addrman_tried_insert: IntCounter,
     pub mempool_added: IntCounter,
@@ -407,6 +410,7 @@ impl Metrics {
         ic!(conn_evicted_inbound, "Number of evicted inbound connections.", registry);
         icv!(conn_misbehaving, "Number of misbehaving connections.", [LABEL_CONN_MISBEHAVING_ID, LABEL_CONN_MISBEHAVING_MESSAGE], registry);
         icv!(conn_misbehaving_reason, "Occurences of misbehavior by reasons", [LABEL_CONN_MISBEHAVING_MESSAGE], registry);
+        ic!(conn_private_transaction_broadcast, "Number of private transaction broadcast (https://github.com/bitcoin/bitcoin/pull/29415) connections (detected by user_agent).", registry);
         icv!(p2p_inv_entries, "Number of INV entries send and received with INV type.", [LABEL_P2P_DIRECTION, LABEL_P2P_INV_TYPE], registry);
         hv!(p2p_inv_entries_histogram, "Histogram number of entries contained in an INV message.", BUCKETS_INV_SIZE, [LABEL_P2P_DIRECTION], registry);
         icv!(p2p_invs_homogeneous, "Number of homogeneous INV entries sent and received.", [LABEL_P2P_DIRECTION], registry);
@@ -615,6 +619,8 @@ impl Metrics {
             conn_evicted_inbound,
             conn_misbehaving,
             conn_misbehaving_reason,
+            conn_private_transaction_broadcast,
+
             p2p_inv_entries,
             p2p_inv_entries_histogram,
             p2p_invs_homogeneous,
