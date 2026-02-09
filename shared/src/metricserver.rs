@@ -50,6 +50,8 @@ fn handle_request(
     registry: Option<Registry>,
 ) -> Result<(), RequestHandlingError> {
     let mut buffer = [0; 1024];
+    // Intentionally ignore the HTTP method, path, and headers.
+    // The server returns Prometheus metrics for any request, regardless of path.
     let _ = stream.read(&mut buffer)?;
 
     let mut output_buffer = vec![];
