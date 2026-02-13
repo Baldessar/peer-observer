@@ -32,6 +32,34 @@ jobs:
     - name: Run tests
       run: nix-shell --pure --command "cargo test --all-features"
 
+  nix-test-detect-intermittent-failures:
+    runs-on: ubuntu-latest
+    needs: nix-test
+    steps:
+    - uses: actions/checkout@v6
+    - uses: ./.github/actions/setup-nix-action
+    # use separate steps for iterations here to easily see on GHA the time it took
+    - name: Iteration 0
+      run: nix-shell --pure --command "cargo test --all-features"
+    - name: Iteration 1
+      run: nix-shell --pure --command "cargo test --all-features"
+    - name: Iteration 2
+      run: nix-shell --pure --command "cargo test --all-features"
+    - name: Iteration 3
+      run: nix-shell --pure --command "cargo test --all-features"
+    - name: Iteration 4
+      run: nix-shell --pure --command "cargo test --all-features"
+    - name: Iteration 5
+      run: nix-shell --pure --command "cargo test --all-features"
+    - name: Iteration 6
+      run: nix-shell --pure --command "cargo test --all-features"
+    - name: Iteration 7
+      run: nix-shell --pure --command "cargo test --all-features"
+    - name: Iteration 8
+      run: nix-shell --pure --command "cargo test --all-features"
+    - name: Iteration 9
+      run: nix-shell --pure --command "cargo test --all-features"
+
   nix-format:
     runs-on: ubuntu-latest
     steps:
@@ -81,6 +109,36 @@ jobs:
     - name: Install integration test dependecies
       run: sudo apt-get install -y nats-server
     - name: Run tests and integration tests
+      run: NATS_SERVER_BINARY=$(which nats-server) cargo test --all-features
+
+  ubuntu-test-detect-intermittent-failures:
+    runs-on: ubuntu-latest
+    needs: ubuntu-test
+    steps:
+    - uses: actions/checkout@v6
+    - uses: ./.github/actions/setup-ubuntu-action
+    - name: Install integration test dependecies
+      run: sudo apt-get install -y nats-server
+    # use separate steps for iterations here to easily see on GHA the time it took
+    - name: Iteration 0
+      run: NATS_SERVER_BINARY=$(which nats-server) cargo test --all-features
+    - name: Iteration 1
+      run: NATS_SERVER_BINARY=$(which nats-server) cargo test --all-features
+    - name: Iteration 2
+      run: NATS_SERVER_BINARY=$(which nats-server) cargo test --all-features
+    - name: Iteration 3
+      run: NATS_SERVER_BINARY=$(which nats-server) cargo test --all-features
+    - name: Iteration 4
+      run: NATS_SERVER_BINARY=$(which nats-server) cargo test --all-features
+    - name: Iteration 5
+      run: NATS_SERVER_BINARY=$(which nats-server) cargo test --all-features
+    - name: Iteration 6
+      run: NATS_SERVER_BINARY=$(which nats-server) cargo test --all-features
+    - name: Iteration 7
+      run: NATS_SERVER_BINARY=$(which nats-server) cargo test --all-features
+    - name: Iteration 8
+      run: NATS_SERVER_BINARY=$(which nats-server) cargo test --all-features
+    - name: Iteration 9
       run: NATS_SERVER_BINARY=$(which nats-server) cargo test --all-features
 
   ubuntu-docs-tools:
