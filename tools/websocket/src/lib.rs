@@ -9,6 +9,7 @@ use shared::protobuf::{
     ebpf_extractor::ebpf,
     event::{self, event::PeerObserverEvent},
 };
+use shared::serde::{Deserialize, Serialize};
 use shared::{
     clap, nats_util,
     tokio::{
@@ -54,23 +55,23 @@ impl Args {
     }
 }
 
-#[derive(Default, Debug)]
-struct ClientSubscriptionsEbpf {
-    messages: bool,
-    mempool: bool,
-    validation: bool,
-    connections: bool,
-    addrman: bool,
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+#[serde(crate = "shared::serde", default)]
+pub struct ClientSubscriptionsEbpf {
+    pub messages: bool,
+    pub mempool: bool,
+    pub validation: bool,
+    pub connections: bool,
+    pub addrman: bool,
 }
 
-// TODO: we could do this more granular (for more detailed filtering)
-// ClientSubscriptionsEbpf is an example of more detailed filtering
-#[derive(Default, Debug)]
-struct ClientSubscriptions {
-    ebpf: ClientSubscriptionsEbpf,
-    p2p: bool,
-    log: bool,
-    rpc: bool,
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+#[serde(crate = "shared::serde", default)]
+pub struct ClientSubscriptions {
+    pub ebpf: ClientSubscriptionsEbpf,
+    pub p2p: bool,
+    pub log: bool,
+    pub rpc: bool,
 }
 
 struct Client {
@@ -174,10 +175,34 @@ async fn handle_client(
     while let Some(msg) = incoming.next().await {
         match msg {
             Ok(m) => {
-                if let TungsteniteMessage::Close(_) = m {
-                    // Remove the client from the shared list if the connection is closed
-                    clients.lock().await.remove(&addr);
-                    break;
+                match m {
+                    TungsteniteMessage::Close(_) => {
+                        // Remove the client from the shared list if the connection is closed
+                        clients.lock().await.remove(&addr);
+                        break;
+                    }
+                    TungsteniteMessage::Text(text) => {
+                        log::debug!("Received message from client '{}': {}", addr, text);
+                        if text.is_empty() {
+                            if let Some(client) = clients.lock().await.get_mut(&addr) {
+                                client.outgoing.close().await?;
+                            }
+                            clients.lock().await.remove(&addr);
+                            continue;
+                        }
+
+                        match serde_json::from_str::<ClientSubscriptions>(&text) {
+                            Ok(subs) => {
+                                clients.lock().await.get_mut(&addr).unwrap().subscriptions = subs;
+                            }
+                            Err(e) => {
+                                log::warn!("Could not parse client subscriptions from message: {text}; Closing connection to client '{addr}'; Error: {e}");
+                                clients.lock().await.remove(&addr);
+                                break;
+                            }
+                        }
+                    }
+                    _ => (),
                 }
             }
             Err(_) => {
@@ -192,7 +217,7 @@ async fn handle_client(
 }
 
 async fn broadcast_to_clients(event: &PeerObserverEvent, clients: &Clients) {
-    let message = match serde_json::to_string::<PeerObserverEvent>(&event.clone()) {
+    let message = match serde_json::to_string::<PeerObserverEvent>(event) {
         Ok(msg) => msg,
         Err(e) => {
             log::error!("Could not serialize the message to JSON: {}", e);
@@ -202,7 +227,7 @@ async fn broadcast_to_clients(event: &PeerObserverEvent, clients: &Clients) {
 
     let mut clients = clients.lock().await;
     for (addr, client) in clients.iter_mut() {
-        let is_subscribed = match &event {
+        let is_subscribed = match event {
             PeerObserverEvent::EbpfExtractor(ebpf) => match &ebpf.ebpf_event {
                 Some(ebpf::EbpfEvent::Message(_)) => client.subscriptions.ebpf.messages,
                 Some(ebpf::EbpfEvent::Connection(_)) => client.subscriptions.ebpf.connections,

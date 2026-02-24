@@ -11,6 +11,7 @@ pub extern crate log;
 pub extern crate prometheus;
 pub extern crate prost;
 pub extern crate rand;
+pub extern crate serde;
 pub extern crate simple_logger;
 pub extern crate tokio;
 
