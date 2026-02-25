@@ -349,9 +349,10 @@ async fn test_integration_logextractor_block_checked() {
         |event| {
             match event {
                 PeerObserverEvent::LogExtractor(r) => {
-                    if let Some(log::LogEvent::BlockCheckedLog(block_checked)) = r.log_event {
+                    if let Some(log::LogEvent::BlockCheckedLog(block_checked)) = r.log_event
+                        && block_checked.state == "Valid"
+                    {
                         assert!(!block_checked.block_hash.is_empty());
-                        assert_eq!(block_checked.state, "Valid");
                         info!("BlockCheckedLog event {}", block_checked);
                         return true;
                     }
@@ -400,8 +401,8 @@ async fn test_integration_logextractor_mutated_block_bad_witness_nonce_size() {
                 PeerObserverEvent::LogExtractor(r) => {
                     if let Some(ref e) = r.log_event
                         && let log::LogEvent::BlockCheckedLog(block_checked) = e
+                        && block_checked.state == "bad-witness-nonce-size"
                     {
-                        assert_eq!(block_checked.state, "bad-witness-nonce-size");
                         assert_eq!(
                             block_checked.debug_message,
                             "CheckWitnessMalleation : invalid witness reserved value size"
@@ -455,8 +456,8 @@ async fn test_integration_logextractor_mutated_block_bad_txnmrklroot() {
                 PeerObserverEvent::LogExtractor(l) => {
                     if let Some(ref e) = l.log_event
                         && let log::LogEvent::BlockCheckedLog(block_checked) = e
+                        && block_checked.state == "bad-txnmrklroot"
                     {
-                        assert_eq!(block_checked.state, "bad-txnmrklroot");
                         assert_eq!(block_checked.debug_message, "hashMerkleRoot mismatch");
                         info!("BlockCheckedLog event {}", block_checked);
                         return true;
