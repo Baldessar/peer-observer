@@ -2,9 +2,7 @@
 
 > publishes events into a websocket as JSON
 
-A peer-observer tool that sends out all events on a websocket. Can be used to
-visualize the events in the browser. The `www/*.html` files implement a few
-visualizations.
+A peer-observer tool that can publish all events on a websocket. Clients start with no subscriptions by default, but can opt in to specific event subjects. This can be used to visualize the events in the browser. The `www/*.html` files implement a few visualizations.
 
 ## Example
 
@@ -44,6 +42,17 @@ Options:
   -V, --version
           Print version
 ```
+
+## Event Filtering with Subscriptions
+
+Clients must subscribe to events they want to receive by sending subscription messages after connecting. Subscriptions allow fine-grained control over event types to reduce bandwidth and processing load.
+
+### How subscriptions work
+
+When a client connects, it receives **no events** until it sends a subscription message. Clients can:
+- Send a JSON subscription message to configure which events to receive
+  - e.g. `{ "ebpf": { "messages": true } }` or `{ "rpc": true }`
+  - All fields default to `false` when omitted, so you only need to include what you want
 
 ## Websocket Picker
 
